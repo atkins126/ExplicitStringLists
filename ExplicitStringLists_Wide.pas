@@ -11,9 +11,9 @@
 
     Implementation of list of wide strings.
 
-  Version 1.1 (2021-02-20)
+  Version 1.1.1 (2021-03-06)
 
-  Last change 2021-02-20
+  Last change 2021-03-06
 
   ©2017-2021 František Milt
 
@@ -58,8 +58,9 @@ type
   TESLCharType   = WideChar;
   TESLPCharType  = PWideChar;
 
-  TESLStringType     = WideString;
-  TESLPStringType    = PWideString;
+  TESLStringType  = WideString;
+  TESLPStringType = PWideString;
+
   TESLLongStringType = WideString;
 
 type
@@ -76,6 +77,12 @@ type
 {$DEFINE ESL_ClassTypes}
   {$INCLUDE './ExplicitStringLists.inc'}
 {$UNDEF ESL_ClassTypes}
+
+  TESLWideItemBinaryIOEvent    = procedure(Sender: TObject; Stream: TStream; var Item: TESLListItem) of Object;
+  TESLWideItemBinaryIOCallback = procedure(Sender: TObject; Stream: TStream; var Item: TESLListItem);
+
+  TESLItemBinaryIOEventType    = TESLWideItemBinaryIOEvent;
+  TESLItemBinaryIOCallbackType = TESLWideItemBinaryIOCallback;
 
   TWideStringList = class(TExplicitStringList)
   {$DEFINE ESL_ClassDeclaration}
@@ -95,38 +102,20 @@ uses
 {$ENDIF}
 
 {===============================================================================
-    Auxiliary functions
-===============================================================================}
-
-Function StrLow: TStrSize;
-begin
-Result := 1;
-end;
-
-//------------------------------------------------------------------------------
-
-Function StrHigh(const Str: TESLStringType): TStrSize;
-begin
-Result := Length(Str);
-end;
-
-//------------------------------------------------------------------------------
-
-Function StrAddr(const Str: TESLStringType; Offset: TStrSize = 0): Pointer;
-begin
-If Length(Str) > 0 then
-  begin
-    If Offset < Length(Str) then
-      Result := Addr(Str[StrLow + Offset])
-    else
-      raise EESLInvalidValue.CreateFmt('StrAddr: Offset (%d) out of bounds.',[Offset]);
-  end
-else raise EESLInvalidValue.Create('StrAddr: Empty string.');
-end;
-
-{===============================================================================
     Main implementation
 ===============================================================================}
+
+{$DEFINE ESL_ClassAuxiliary}
+  {$INCLUDE './ExplicitStringLists.inc'}
+{$UNDEF ESL_ClassAuxiliary}
+
+//------------------------------------------------------------------------------
+
+{$DEFINE ESL_ClassDelimitedTextParser}
+  {$INCLUDE './ExplicitStringLists.inc'}
+{$UNDEF ESL_ClassDelimitedTextParser}
+
+//------------------------------------------------------------------------------
 
 {$DEFINE ESL_ClassImplementation}
   {$INCLUDE './ExplicitStringLists.inc'}

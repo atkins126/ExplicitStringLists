@@ -9,9 +9,9 @@
 
   Explicit string lists - defines
 
-  Version 1.1 (2021-02-20)
+  Version 1.1.1 (2021-03-06)
 
-  Last change 2021-02-20
+  Last change 2021-03-06
 
   ©2017-2021 František Milt
 
@@ -72,6 +72,8 @@
 
 {$UNDEF ESL_ClassTypes}
 {$UNDEF ESL_ClassDeclaration}
+{$UNDEF ESL_ClassAuxiliary}
+{$UNDEF ESL_ClassDelimitedTextParser}
 {$UNDEF ESL_ClassImplementation}
 
 {$UNDEF ESL_Short}

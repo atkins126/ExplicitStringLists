@@ -11,9 +11,9 @@
 
     Implementation of list of short strings.
 
-  Version 1.1 (2021-02-20)
+  Version 1.1.1 (2021-03-06)
 
-  Last change 2021-02-20
+  Last change 2021-03-06
 
   ©2017-2021 František Milt
 
@@ -55,11 +55,11 @@ uses
 {$DEFINE ESL_Short}
 
 type
-  TESLCharType   = AnsiChar;
-  TESLPCharType  = PAnsiChar;
+  TESLCharType  = AnsiChar;
+  TESLPCharType = PAnsiChar;
 
-  TESLStringType     = ShortString;
-  TESLPStringType    = PShortString;
+  TESLStringType  = ShortString;
+  TESLPStringType = PShortString;
 {
   TESLLongStringType is used where limited length of short strings would pose
   a problem.
@@ -81,6 +81,12 @@ type
   {$INCLUDE './ExplicitStringLists.inc'}
 {$UNDEF ESL_ClassTypes}
 
+  TESLShortItemBinaryIOEvent    = procedure(Sender: TObject; Stream: TStream; var Item: TESLListItem) of Object;
+  TESLShortItemBinaryIOCallback = procedure(Sender: TObject; Stream: TStream; var Item: TESLListItem);
+
+  TESLItemBinaryIOEventType    = TESLShortItemBinaryIOEvent;
+  TESLItemBinaryIOCallbackType = TESLShortItemBinaryIOCallback;
+
   TShortStringList = class(TExplicitStringList)
   {$DEFINE ESL_ClassDeclaration}
     {$INCLUDE './ExplicitStringLists.inc'}
@@ -99,38 +105,20 @@ uses
 {$ENDIF}
 
 {===============================================================================
-    Auxiliary functions
-===============================================================================}
-
-Function StrLow: TStrSize;
-begin
-Result := 1;
-end;
-
-//------------------------------------------------------------------------------
-
-Function StrHigh(const Str: TESLStringType): TStrSize;
-begin
-Result := Length(Str);
-end;
-
-//------------------------------------------------------------------------------
-
-Function StrAddr(const Str: TESLStringType; Offset: TStrSize = 0): Pointer;
-begin
-If Length(Str) > 0 then
-  begin
-    If Offset < Length(Str) then
-      Result := Addr(Str[StrLow + Offset])
-    else
-      raise EESLInvalidValue.CreateFmt('StrAddr: Offset (%d) out of bounds.',[Offset]);
-  end
-else raise EESLInvalidValue.Create('StrAddr: Empty string.');
-end;
-
-{===============================================================================
     Main implementation
 ===============================================================================}
+
+{$DEFINE ESL_ClassAuxiliary}
+  {$INCLUDE './ExplicitStringLists.inc'}
+{$UNDEF ESL_ClassAuxiliary}
+
+//------------------------------------------------------------------------------
+
+{$DEFINE ESL_ClassDelimitedTextParser}
+  {$INCLUDE './ExplicitStringLists.inc'}
+{$UNDEF ESL_ClassDelimitedTextParser}
+
+//------------------------------------------------------------------------------
 
 {$DEFINE ESL_ClassImplementation}
   {$INCLUDE './ExplicitStringLists.inc'}

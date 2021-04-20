@@ -12,9 +12,9 @@
     Base classes and types for all lists and utility classes (eg. delimited
     text parser).
 
-  Version 1.1 (2021-02-20)
+  Version 1.1.1 (2021-03-06)
 
-  Last change 2021-02-20
+  Last change 2021-03-06
 
   ©2017-2021 František Milt
 
@@ -124,6 +124,9 @@ type
     fStrictSorted:            Boolean;
     fStrictDelimiter:         Boolean;
     fTrailingLineBreak:       Boolean;
+    // IO parameters
+    fFileSaveShareMode:       Word;
+    fFileLoadShareMode:       Word;
     // change events
     fOnItemChangingCallback:  TIndexCallback;
     fOnItemChangingEvent:     TIndexEvent;
@@ -168,15 +171,16 @@ type
     procedure Initialize; virtual;
     procedure Finalize; virtual;
     // auxiliary methods
+    class procedure WideSwapEndian(Data: PUInt16; Count: TStrSize); virtual;
+    class procedure LongSwapEndian(Data: PUInt32; Count: TStrSize); virtual;
+    class Function StrBufferSize(Buffer: Pointer): TMemSize; virtual; abstract;
+    class Function CharSize: TMemSize; virtual; abstract;
     Function SortCompare(Idx1,Idx2: Integer): Integer; virtual; abstract;
     Function GetWriteLength: TStrSize; virtual; abstract; // for preallocations
     Function GetWriteSize: TMemSize; virtual;
     procedure WriteItemToStream(Stream: TStream; Index: Integer; Endianness: TESLStringEndianness); virtual; abstract;
     procedure WriteLineBreakToStream(Stream: TStream; Endianness: TESLStringEndianness); virtual; abstract;
     procedure WriteBOMToStream(Stream: TStream; Endianness: TESLStringEndianness); virtual; abstract;
-    class procedure WideSwapEndian(Data: PWideChar; Count: TStrSize); virtual;
-    class Function StrBufferSize(Buffer: Pointer): TMemSize; virtual; abstract;
-    class Function CharSize: TMemSize; virtual; abstract;
     // internal methods
     Function InternalExtract(Index: Integer): TObject; virtual; abstract;
     procedure InternalSort(Reversed: Boolean = False); virtual;
@@ -194,8 +198,10 @@ type
     // list items methods
     Function IndexOfDefString(const Str: String): Integer; virtual; abstract;
     Function IndexOfObject(Obj: TObject): Integer; virtual; abstract;
+    Function IndexOfUserData(UserData: PtrInt): Integer; virtual; abstract;
     Function FindDefString(const Str: String; out Index: Integer): Boolean; virtual; abstract;
     Function FindObject(Obj: TObject; out Index: Integer): Boolean; virtual; abstract;
+    Function FindUserData(UserData: PtrInt; out Index: Integer): Boolean; virtual; abstract;
     Function AddDefString(const Str: String): Integer; virtual; abstract;
     Function AddDefStringObject(const Str: String; Obj: TObject): Integer; virtual; abstract;
     procedure AddStrings(Strings: TStrings); overload; virtual;
@@ -212,8 +218,10 @@ type
     procedure Exchange(Idx1,Idx2: Integer); virtual; abstract;
     Function ExtractDefString(const Str: String): TObject; virtual; abstract;
     Function ExtractObject(Obj: TObject): TObject; virtual; abstract;
+    Function ExtractUserData(UserData: PtrInt): TObject; virtual; abstract;
     Function RemoveDefString(const Str: String): Integer; virtual; abstract;
     Function RemoveObject(Obj: TObject): Integer; virtual; abstract;
+    Function RemoveUserData(UserData: PtrInt): Integer; virtual; abstract;
     procedure Delete(Index: Integer); virtual; abstract;
     procedure Clear; virtual;
     // list manipulation methods
@@ -227,8 +235,8 @@ type
     procedure AssignTo(Destination: TStrings); overload; virtual; abstract;
     // streaming methods
   {
-    BOM is written only for UTF8-, Wide- and UnicodeStrings.
-    Endiannes affects only Wide- and UnicodeStrings, it has no meaning for
+    BOM is written only for UTF8, Wide, Unicode and UCS4Strings.
+    Endiannes affects only Wide, Unicode and UCS4Strings, it has no meaning for
     single-byte-character strings.
   }
     procedure SaveToStream(Stream: TStream; WriteBOM: Boolean = True; Endianness: TESLStringEndianness = seSystem); virtual;
@@ -257,6 +265,9 @@ type
     property StrictDelimiter: Boolean read fStrictDelimiter write fStrictDelimiter;
     property TrailingLineBreak: Boolean read fTrailingLineBreak write fTrailingLineBreak;
     property LineBreakStyle: TESLLineBreakStyle read GetLineBreakStyle write SetLineBreakStyle;
+    // IO parameters
+    property FileSaveShareMode: Word read fFileSaveShareMode write fFileSaveShareMode;
+    property FileLoadShareMode: Word read fFileLoadShareMode write fFileLoadShareMode;
     // change events properties
     property OnItemChangingCallback: TIndexCallback read fOnItemChangingCallback write fOnItemChangingCallback;
     property OnItemChangingEvent: TIndexEvent read fOnItemChangingEvent write fOnItemChangingEvent;
@@ -503,6 +514,8 @@ fSorted := False;
 fStrictSorted := True;
 fStrictDelimiter := False;
 fTrailingLineBreak := True;
+fFileSaveShareMode := fmShareDenyWrite;
+fFileLoadShareMode := fmShareDenyWrite;
 end;
 
 //------------------------------------------------------------------------------
@@ -527,23 +540,39 @@ end;
 
 //------------------------------------------------------------------------------
 
-Function TExplicitStringList.GetWriteSize: TMemSize;
-begin
-Result := TMemSize(GetWriteLength) * CharSize;
-end;
-
-//------------------------------------------------------------------------------
-
-class procedure TExplicitStringList.WideSwapEndian(Data: PWideChar; Count: TStrSize);
+class procedure TExplicitStringList.WideSwapEndian(Data: PUInt16; Count: TStrSize);
 var
-  i:  Integer;
+  i:  TStrSize;
 begin
 If Count > 0 then
   For i := 0 to Pred(Count) do
     begin
-      PUInt16(Data)^ := UInt16(PUInt16(Data)^ shr 8) or UInt16(PUInt16(Data)^ shl 8);
+      PUInt16(Data)^ := (Data^ shr 8) or (Data^ shl 8);
       Inc(Data);
     end;
+end;
+
+//------------------------------------------------------------------------------
+
+class procedure TExplicitStringList.LongSwapEndian(Data: PUInt32; Count: TStrSize);
+var
+  i:  TStrSize;
+begin
+If Count > 0 then
+  For i := 0 to Pred(Count) do
+    begin
+      PUInt32(Data)^ := ((Data^ and $FF000000) shr 24) or ((Data^ and $00FF0000) shr 8) or 
+                        ((Data^ and $0000FF00) shl 8) or ((Data^ and $000000FF) shl 24);
+      Inc(Data);
+    end;
+end;
+
+//------------------------------------------------------------------------------
+
+Function TExplicitStringList.GetWriteSize: TMemSize;
+begin
+// GetWriteLength should newer return a negative value
+Result := TMemSize(GetWriteLength) * CharSize;
 end;
 
 //------------------------------------------------------------------------------
@@ -580,8 +609,9 @@ begin
 Size := GetWriteSize;
 If Size > 0 then
   begin
-    Result := AllocMem(Size + CharSize); // also zeroes memory, CharSize for a terminating zero
-    Stream := TWritableStaticMemoryStream.Create(Result,Size);
+    Inc(Size,CharSize);         // CharSize for a terminating zero
+    Result := AllocMem(Size);   // also zeroes memory
+    Stream := TWritableStaticMemoryStream.Create(Result,Size - CharSize);
     try
       Stream.Seek(0,soBeginning);
       SaveToStream(Stream,False,seSystem);
@@ -591,7 +621,7 @@ If Size > 0 then
   end
 else
   begin
-    Result := AllocMem(CharSize);
+    Result := AllocMem(CharSize); // string consisting only of a terminating zero
     Size := CharSize;
   end;
 end;
@@ -602,13 +632,14 @@ procedure TExplicitStringList.InternalSetText(Text: Pointer; Size: TMemSize);
 var
   Stream: TStaticMemoryStream;
 begin
-If Assigned(Text) and (Size <> 0) then
+If Assigned(Text) and (Size >= CharSize) then
   begin
     BeginUpdate;
     try
       DoListChanging;
       Clear;
-      Stream := TStaticMemoryStream.Create(Text,Size);
+      // subtract CharSize for a terminating zero
+      Stream := TStaticMemoryStream.Create(Text,Size - CharSize);
       try
         Stream.Seek(0,soBeginning);
         LoadFromStream(Stream);
@@ -774,6 +805,7 @@ begin
 If fCount > 0 then
   begin
     DoListChanging;
+    // fOwnsObjects is checked again in ClearArrayItem, but can prevent useless for cycle
     If fOwnsObjects then
       For i := LowIndex to HighIndex do
         ClearArrayItem(i);
@@ -781,7 +813,7 @@ If fCount > 0 then
     fCount := 0;
     DoListChange;
   end
-else SetArrayLength(0);
+else SetArrayLength(0); // to be sure
 end;
 
 //------------------------------------------------------------------------------
@@ -852,7 +884,7 @@ procedure TExplicitStringList.SaveToFile(const FileName: String; WriteBOM: Boole
 var
   FileStream: TFileStream;
 begin
-FileStream := TFileStream.Create(StrToRTL(FileName),fmCreate or fmShareDenyWrite);
+FileStream := TFileStream.Create(StrToRTL(FileName),fmCreate or fFileSaveShareMode);
 try
   FileStream.Seek(0,soBeginning);
   SaveToStream(FileStream,WriteBOM,Endianness);
@@ -876,7 +908,7 @@ procedure TExplicitStringList.LoadFromFile(const FileName: String; out Endiannes
 var
   FileStream: TFileStream;
 begin
-FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenRead or fmShareDenyWrite);
+FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenRead or fFileLoadShareMode);
 try
   FileStream.Seek(0,soBeginning);
   LoadFromStream(FileStream,Endianness);
@@ -900,7 +932,7 @@ procedure TExplicitStringList.BinarySaveToFile(const FileName: String);
 var
   FileStream: TFileStream;
 begin
-FileStream := TFileStream.Create(StrToRTL(FileName),fmCreate or fmShareDenyWrite);
+FileStream := TFileStream.Create(StrToRTL(FileName),fmCreate or fFileSaveShareMode);
 try
   FileStream.Seek(0,soBeginning);
   BinarySaveToStream(FileStream);
@@ -915,7 +947,7 @@ procedure TExplicitStringList.BinaryLoadFromFile(const FileName: String);
 var
   FileStream: TFileStream;
 begin
-FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenRead or fmShareDenyWrite);
+FileStream := TFileStream.Create(StrToRTL(FileName),fmOpenRead or fFileLoadShareMode);
 try
   FileStream.Seek(0,soBeginning);
   BinaryLoadFromStream(FileStream);
